@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   CWQT Data Portal: map page template.
-  cwqt_visualize.py fills in the LOGO_URL and DATA placeholders (in double curly braces)
+  cwqt_visualize.py fills in the placeholders in double curly braces
   and saves the result as index.html.
   Edit freely: the layout and wording are here, the shared look is in cwqt.css.
 -->
@@ -10,6 +10,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Community Water Quality Testing Data Portal · SWIM Coalition</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="cwqt.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -47,7 +50,8 @@
 
   /* Map panels (legend) */
   .panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
-  .legend { padding: 10px 12px; max-width: 250px; font: 12px/1.4 var(--font-body); color: var(--ink); }
+  .legend { padding: 10px 12px; max-width: 250px; font: 12px/1.4 var(--font-body); color: var(--ink);
+            max-height: calc(100vh - var(--banner-h) - 130px); overflow-y: auto; }
   .legend > summary { display: flex; align-items: center; gap: 6px; font-weight: 700; }
   .legend .muted { color: var(--ink-2); }
   .legend .row { margin: 3px 0; }
@@ -79,10 +83,12 @@
 
 <header class="banner">
   <div class="brand">
-    <img class="logo" src="{{LOGO_URL}}" alt="SWIM Coalition"
-         onerror="this.outerHTML='<span class=&quot;logo-text&quot;>SWIM Coalition</span>'">
+    <a href="https://www.swimmablenyc.org/">
+        <img class="logo" src="{{LOGO_URL}}" alt="SWIM Coalition"
+             onerror="this.outerHTML='<span class=&quot;logo-text&quot;>SWIM Coalition</span>'">
+    </a>
     <h1>Community Water Quality Testing Data Portal</h1>
-  </div>
+</div>
   <nav class="actions">
     <a class="btn" href="charts.html" title="See all charts and graphics">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 14h12M4 11V7M8 11V3M12 11V6"/></svg>
@@ -133,14 +139,12 @@
     attribution: "Streams: USGS National Hydrography Dataset", maxNativeZoom: 16, opacity: 0.8 };
 
   // ===================================================================
-  // EXTRA LAYERS: future datasets (e.g. CSO outfalls, green
-  // infrastructure) go here. Each becomes its own group in the Layers menu.
-  // Example:
-  //   { group: "Infrastructure", name: "CSO outfalls", on: false,
-  //     load: () => fetch("assets/cso_outfalls.geojson").then(r => r.json())
-  //                 .then(g => L.geoJSON(g, { pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4 }) })) },
+  // EXTRA LAYERS (outfalls, drainage areas, green infrastructure, ...) are
+  // listed in data/layers.json. The script slims each file and passes the
+  // list in as D.extraLayers; their names, colors and popup fields all come
+  // from that file, so nothing needs changing here to add one.
   // ===================================================================
-  const EXTRA_LAYERS = [];
+  const EXTRA = D.extraLayers || [];
 
   // ---------- helpers ----------
   const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -185,7 +189,7 @@
 
   function popup(r, layerLabel) {
     const [id, gm, n, pct, gmd, nd, gmw, nw, first, last, lastMpn] = r;
-    const [name, wb, boro, cls] = D.sites[id];
+    const [title, place, cls] = D.sites[id];
     const cat = category(gm);
     const crit = C.crit[cls];
     let critRow = "";
@@ -195,15 +199,15 @@
     const few = n < C.minN ? `<div class="muted" style="margin-top:4px">Only ${n} sample${n !== 1 ? "s" : ""}; a geomean needs ≥${C.minN} to compare with standards.</div>` : "";
     const pdf = D.pdfs[id] ? `<a class="ts-link" href="${esc(D.pdfs[id])}" target="_blank" rel="noopener">See full time series →</a>` : "";
     return `<div class="pop">
-      <div class="name">${esc(name)}</div>
-      <div class="muted" style="margin-bottom:6px">${esc(wb)} · ${esc(boro)} · Site ID ${id}</div>
-      <div style="margin-bottom:6px"><span class="dot" style="width:10px;height:10px;margin-right:6px;background:${C.colors[cat]}"></span><b>${esc(C.labels[cat])}</b> <span class="muted">(${esc(layerLabel)})</span></div>
+      <div class="name">${esc(title)}</div>
+      <div class="muted" style="margin-bottom:6px">${esc(place)} · Site ID ${id}</div>
+      <div style="margin-bottom:6px"><span class="dot" style="width:10px;height:10px;margin-right:6px;background:${C.colors[cat]}"></span><b>${esc(C.labels[cat].split(":")[0])}</b> <span class="muted">(${esc(layerLabel)})</span></div>
       <table>
-        <tr><td>Geometric mean</td><td><b>${fmt(gm)}</b> MPN/100 ml</td></tr>
+        <tr style="font-weight:700"><td>Geometric mean</td><td>${fmt(gm)} MPN/100 ml</td></tr>
+        <tr><td>Most recent result</td><td>${fmt(lastMpn)} on ${dLong(last)}</td></tr>
         <tr><td>Samples</td><td>${n.toLocaleString("en-US")} &nbsp;<span class="muted">${span(first, last)}</span></td></tr>
         <tr><td>Samples over ${C.limit}</td><td>${pct}%</td></tr>
         ${wetdry}
-        <tr><td>Most recent result</td><td>${fmt(lastMpn)} on ${dLong(last)}</td></tr>
         ${critRow}
       </table>${few}
       <div class="muted" style="margin-top:8px">Seasonal geomean, all years (overall ${fmt(D.overall[id])}):</div>
@@ -249,11 +253,11 @@
     layer.rows.forEach(r => {
       const [id, gm, n] = r, s = D.sites[id];
       const cat = category(gm), few = n < C.minN;
-      const m = L.circleMarker([s[4], s[5]], {
+      const m = L.circleMarker([s[3], s[4]], {
         renderer, radius: few ? 6 : 7, color: few ? C.ink2 : "#ffffff", weight: few ? 1.5 : 2,
         dashArray: few ? "3,3" : null, fillColor: C.colors[cat], fillOpacity: few ? 0.55 : 0.95
       });
-      if (canHover) m.bindTooltip(`${esc(s[0])}: geomean ${fmt(gm)} (${esc(C.labels[cat].split(":")[0])}, n=${n})`);
+      if (canHover) m.bindTooltip(esc(s[0]));
       m.on("popupopen", () => m.closeTooltip());
       m.bindPopup(() => popup(r, layer.label), {
         maxWidth: Math.min(320, window.innerWidth - 50),
@@ -265,6 +269,108 @@
   function showCwqt() {
     if (cwqtLayer) { map.removeLayer(cwqtLayer); cwqtLayer = null; }
     if (cwqtOn) cwqtLayer = buildCwqt(cwqtIndex).addTo(map);
+    restack();
+  }
+
+  // ---------- extra layers ----------
+  const extraState = EXTRA.map(() => ({ checked: false, layer: null, loading: false }));
+  function extraColor(meta, f) {
+    if (meta.categories) return meta.categories.classes[Math.min(f.properties._c, meta.categories.classes.length - 1)].color;
+    return meta.style.color || "#555";
+  }
+  function featurePopup(meta, f) {
+    const p = f.properties;
+    const head = meta.title && p[meta.title] !== undefined ? esc(meta.titlePrefix + p[meta.title]) : esc(meta.name);
+    const rows = meta.fields.filter(([k]) => p[k] !== undefined && p[k] !== "")
+      .map(([k, lab]) => `<tr><td>${esc(lab)}</td><td>${esc(p[k])}</td></tr>`).join("");
+    return `<div class="pop"><div class="name">${head}</div>
+      <div class="muted" style="margin-bottom:6px">${esc(meta.name)}</div><table>${rows}</table></div>`;
+  }
+  // Layer files are stored compactly (see build_data_layers in the script):
+  // d.k = field names, d.s = distinct values, d.f = [[geometry or [lon, lat]], [value numbers], category?]
+  function rowProps(d, row) {
+    const props = {};
+    d.k.forEach((k, j) => { const v = row[1][j]; if (v >= 0) props[k] = d.s[v]; });
+    if (row.length > 2) props._c = row[2];
+    return props;
+  }
+  function pointMarker(meta, d, i) {
+    const row = d.f[i], st = meta.style || {};
+    const m = L.circleMarker([row[0][1], row[0][0]], { renderer, radius: st.radius || 3, color: "#ffffff", weight: 0.6,
+      fillColor: extraColor(meta, { properties: { _c: row[2] } }), fillOpacity: 0.9 });
+    m._row = i;
+    return m;
+  }
+  function buildExtra(meta, d) {
+    let g;
+    if (d.p) {
+      // Point layers: keep the compact rows and only create markers for what's on screen
+      // (refreshed after every pan/zoom), so thousands of points don't fill memory.
+      g = L.layerGroup();
+      g._d = d; g._meta = meta;
+      g.on("click", e => openFeature(meta, rowProps(d, d.f[e.layer._row]), e.latlng));
+    } else {
+      g = L.geoJSON({ type: "FeatureCollection", features: d.f.map(row => ({ type: "Feature", properties: rowProps(d, row), geometry: row[0] })) }, {
+        renderer,
+        style: f => ({ color: extraColor(meta, f), weight: (meta.style || {}).weight || 1, opacity: 0.9,
+                       fillColor: extraColor(meta, f), fillOpacity: (meta.style || {}).fill === undefined ? 0.15 : meta.style.fill }),
+      });
+      g.on("click", e => openFeature(meta, e.layer.feature.properties, e.latlng));
+    }
+    return g;
+  }
+  function refreshPoints(g) {
+    if (!g._d || !map.hasLayer(g)) return;
+    const b = map.getBounds().pad(0.25), d = g._d;
+    g.clearLayers();
+    for (let i = 0; i < d.f.length; i++) {
+      const c = d.f[i][0];
+      if (c[1] >= b.getSouth() && c[1] <= b.getNorth() && c[0] >= b.getWest() && c[0] <= b.getEast())
+        g.addLayer(pointMarker(g._meta, d, i));
+    }
+  }
+  function openFeature(meta, props, latlng) {
+    L.popup({ maxWidth: Math.min(320, window.innerWidth - 50) }).setLatLng(latlng)
+      .setContent(featurePopup(meta, { properties: props })).openOn(map);
+  }
+  // Draw order: shapes, then points, then CWQT sites on top.
+  function restack() {
+    EXTRA.forEach((m, i) => { const l = extraState[i].layer;
+      if (m.kind === "point" && l && map.hasLayer(l)) l.eachLayer(x => x.bringToFront()); });
+    if (cwqtLayer) cwqtLayer.eachLayer(x => x.bringToFront());
+  }
+  function syncExtra() {
+    const z = map.getZoom();
+    EXTRA.forEach((meta, i) => {
+      const st = extraState[i], show = st.checked && z >= (meta.minZoom || 0);
+      if (st.layer) {
+        if (show && !map.hasLayer(st.layer)) st.layer.addTo(map);
+        if (!show && map.hasLayer(st.layer)) { map.removeLayer(st.layer); if (st.layer._d) st.layer.clearLayers(); }
+        if (show && st.layer._d) refreshPoints(st.layer);
+      }
+      const hintEl = document.getElementById(`extra-hint-${i}`);
+      if (hintEl) {
+        hintEl.textContent = st.loading ? "Loading…" : "Zoom in to see this layer";
+        hintEl.hidden = !(st.checked && (st.loading || z < (meta.minZoom || 0)));
+      }
+    });
+    restack();
+    updateLegend();
+  }
+  function toggleExtra(i, on) {
+    const st = extraState[i];
+    st.checked = on;
+    if (!on && st.layer) {            // switched off: release it (switching back on re-reads the cached file)
+      if (map.hasLayer(st.layer)) map.removeLayer(st.layer);
+      st.layer = null;
+    }
+    if (on && !st.layer && !st.loading) {
+      st.loading = true;
+      fetch(EXTRA[i].url).then(r => r.json()).then(d => { st.layer = buildExtra(EXTRA[i], d); })
+        .catch(() => { st.checked = false; const cb = document.getElementById(`extra-${i}`); if (cb) cb.checked = false; })
+        .finally(() => { st.loading = false; syncExtra(); });
+    }
+    syncExtra();
   }
 
   // ---------- Layers menu ----------
@@ -290,6 +396,14 @@
         </div>
       </div>
     </details>
+    ${[...new Set(EXTRA.map(l => l.group))].map(gname => `
+    <details class="layer-group">
+      <summary>${chev}${esc(gname)}</summary>
+      <div class="group-body">
+        ${EXTRA.map((l, i) => [l, i]).filter(([l]) => l.group === gname).map(([l, i]) =>
+          check(`extra-${i}`, l.name, false) + `<div class="hint" id="extra-hint-${i}" hidden></div>`).join("")}
+      </div>
+    </details>`).join("")}
     <details class="layer-group"${small() ? "" : " open"}>
       <summary>${chev}Basemap</summary>
       <div class="group-body">
@@ -298,12 +412,6 @@
         <div class="hint" id="waterways-hint">Zoom in to see streams and rivers</div>
       </div>
     </details>`;
-  const extraGroups = [...new Set(EXTRA_LAYERS.map(l => l.group))];
-  extraGroups.forEach(gname => {
-    html += `<details class="layer-group"><summary>${chev}${esc(gname)}</summary><div class="group-body">` +
-      EXTRA_LAYERS.map((l, i) => [l, i]).filter(([l]) => l.group === gname)
-        .map(([l, i]) => check(`extra-${i}`, l.name, l.on)).join("") + `</div></details>`;
-  });
   panel.innerHTML = html;
 
   function markSelected(name) {
@@ -320,14 +428,6 @@
     else if (t.id === "waterways-on") setWaterways(t.checked);
     else if (t.id && t.id.startsWith("extra-")) toggleExtra(Number(t.id.slice(6)), t.checked);
   });
-  const extraLoaded = {};
-  function toggleExtra(i, on) {
-    const l = EXTRA_LAYERS[i];
-    if (on) {
-      if (extraLoaded[i]) return extraLoaded[i].addTo(map);
-      Promise.resolve(l.load()).then(layer => { extraLoaded[i] = layer; if (document.getElementById(`extra-${i}`).checked) layer.addTo(map); });
-    } else if (extraLoaded[i]) map.removeLayer(extraLoaded[i]);
-  }
 
   function openPanel(open) {
     panel.hidden = !open;
@@ -346,9 +446,10 @@
       d.innerHTML =
         `<summary>${chev}Legend</summary>
          <div style="margin-top:6px"><b>Enterococcus geometric mean</b></div>
-         <div class="muted" style="margin-bottom:6px">MPN per 100 ml, NYC DOH primary-contact scale</div>` +
+         <div class="muted" style="margin-bottom:6px">Most probable number (MPN) per 100 ml</div>` +
         ["good", "advisory", "poor"].map(k => `<div class="row"><span class="dot" style="background:${C.colors[k]}"></span>${esc(C.labels[k])}</div>`).join("") +
         `<div class="row" style="margin-top:4px"><span class="dot" style="width:9px;height:9px;border:1.5px dashed ${C.ink2};opacity:.8"></span>Fewer than ${C.minN} samples</div>
+         <div id="legend-extra"></div>
          <div class="muted" style="margin-top:6px">${esc(D.updated)}. Click a site for details.</div>`;
       L.DomEvent.disableClickPropagation(d);
       L.DomEvent.disableScrollPropagation(d);
@@ -356,6 +457,23 @@
     }
   });
   map.addControl(new Legend());
+  function updateLegend() {
+    const box = document.getElementById("legend-extra");
+    if (!box) return;
+    const sw = (meta, c) => meta.kind === "point"
+      ? `<span class="dot" style="width:9px;height:9px;background:${c}"></span>`
+      : `<span class="dot" style="border-radius:2px;background:${c}55;border:1.5px solid ${c}"></span>`;
+    let html = "", lastHead = null;
+    EXTRA.forEach((meta, i) => {
+      if (!extraState[i].checked) return;
+      const head = meta.categories ? meta.name : meta.group;   // layers with types get their own heading
+      if (head !== lastHead) { html += `<div style="margin-top:8px"><b>${esc(head)}</b></div>`; lastHead = head; }
+      html += meta.categories
+        ? meta.categories.classes.map(c => `<div class="row">${sw(meta, c.color)}${esc(c.label)}</div>`).join("")
+        : `<div class="row">${sw(meta, meta.style.color || "#555")}${esc(meta.name)}</div>`;
+    });
+    box.innerHTML = html;
+  }
 
   // ---------- start ----------
   setBasemap(0);
@@ -367,7 +485,8 @@
   document.getElementById("waterways-on").addEventListener("change", updateHint);
   updateHint();
   showCwqt();
-  EXTRA_LAYERS.forEach((l, i) => { if (l.on) toggleExtra(i, true); });
+  map.on("moveend", syncExtra);      // also fires after zooming
+  EXTRA.forEach((l, i) => { if (l.on) { document.getElementById(`extra-${i}`).checked = true; toggleExtra(i, true); } });
 })();
 </script>
 </body>

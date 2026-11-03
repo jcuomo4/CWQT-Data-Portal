@@ -1,0 +1,137 @@
+{
+  "_help": [
+    "Extra map layers. Each entry becomes a checkbox in the map's Layers menu, under its 'group'.",
+    "files: file names or patterns in this data/ folder (* matches anything, so a new dated download",
+    "  replaces the old one automatically; when several files match, the newest name wins).",
+    "  Files must be GeoJSON in latitude/longitude (see the README for converting shapefiles or KML).",
+    "fields: properties to keep, in popup order, as {property: label}. Everything else is dropped",
+    "  so the map loads fast. values: optional lookups that turn codes into readable text.",
+    "title: property shown in bold at the top of the popup.",
+    "style: color (hex), radius (points, in pixels), fill (0-1, polygons), weight (outline width).",
+    "categories: optional; color features by one property. Values not listed use 'other'.",
+    "minZoom: hide the layer when zoomed out further than this (11 = citywide, 14 = neighborhood).",
+    "on: true to show the layer when the map opens."
+  ],
+  "layers": [
+    {
+      "id": "outfalls",
+      "group": "Sewers & stormwater",
+      "name": "Outfalls",
+      "files": ["NYC_Citywide_Outfalls_*.json"],
+      "title": "unitid",
+      "fields": {
+        "outfall_ty": "Type",
+        "location": "Location",
+        "receiving_": "Receiving water",
+        "of_size": "Size",
+        "ownership": "Owner"
+      },
+      "values": {
+        "outfall_ty": {
+          "CSO": "Combined sewer overflow (CSO)",
+          "MS4": "Municipal separate storm sewer (MS4)",
+          "HIGHWAY": "Highway",
+          "DIRECT": "Direct drainage",
+          "PLANT": "Wastewater treatment plant",
+          "CLVT": "Culvert",
+          "INLT": "Inlet",
+          "GENERAL": "General",
+          "STATE": "State",
+          "ABND": "Abandoned"
+        },
+        "ownership": {
+          "DEP": "NYC DEP",
+          "PVT": "Private",
+          "PVT_PRE64": "Private (pre-1964)",
+          "NYSDOT": "NYS DOT",
+          "NYSDEC": "NYS DEC",
+          "TBTA": "MTA Bridges & Tunnels",
+          "UNK": "Unknown",
+          "OTH": "Other"
+        }
+      },
+      "style": { "radius": 3.5 },
+      "categories": {
+        "field": "outfall_ty",
+        "label": "Outfall type",
+        "classes": [
+          { "values": ["CSO"], "label": "Combined sewer overflow (CSO)", "color": "#6250d6" },
+          { "values": ["MS4"], "label": "Separate storm sewer (MS4)", "color": "#2a78d6" },
+          { "values": ["HIGHWAY"], "label": "Highway", "color": "#d55181" },
+          { "values": ["DIRECT"], "label": "Direct drainage", "color": "#8c5a3c" }
+        ],
+        "other": { "label": "Other (treatment plant, culvert, inlet…)", "color": "#8a8f99" }
+      },
+      "minZoom": 12,
+      "on": false
+    },
+    {
+      "id": "cso_drainage",
+      "group": "Sewers & stormwater",
+      "name": "Combined sewer drainage areas",
+      "files": ["NYC_Drainage_Areas/NYC_combinedsewer_drainage_area*.json"],
+      "title": "outfall",
+      "titlePrefix": "Drains to outfall ",
+      "fields": { "acreage": "Acres", "population": "Population" },
+      "style": { "color": "#6250d6", "fill": 0.06, "weight": 1 },
+      "on": false
+    },
+    {
+      "id": "gi_points",
+      "group": "Green infrastructure",
+      "name": "Green infrastructure sites",
+      "files": ["NYC_Green_Infrastructure_*/DEP_Green_Infrastructure_(Point_Layer)_*.json"],
+      "title": "asset_type",
+      "fields": {
+        "status_gro": "Status",
+        "project_na": "Project",
+        "nyc_waters": "Waterbody",
+        "outfall": "Outfall"
+      },
+      "values": {
+        "asset_type": {
+          "ROWB": "Right-of-way bioswale",
+          "ROWGS": "Right-of-way greenstrip",
+          "ROWRG": "Right-of-way rain garden",
+          "ROWSGS": "Right-of-way stormwater greenstrip"
+        }
+      },
+      "style": { "color": "#1a9e6e", "radius": 2.5 },
+      "minZoom": 14,
+      "on": false
+    },
+    {
+      "id": "gi_porous",
+      "group": "Green infrastructure",
+      "name": "Porous pavement",
+      "files": ["NYC_Green_Infrastructure_*/DEP_Green_Infrastructure_(Porous_Pavement_Right_of_Way_Practices)_*.json"],
+      "title": "asset_type",
+      "fields": { "status_gro": "Status", "project_na": "Project", "nyc_waters": "Waterbody", "outfall": "Outfall" },
+      "style": { "color": "#3d7a4a", "fill": 0.5, "weight": 1 },
+      "minZoom": 14,
+      "on": false
+    },
+    {
+      "id": "gi_medians",
+      "group": "Green infrastructure",
+      "name": "Medians",
+      "files": ["NYC_Green_Infrastructure_*/DEP_Green_Infrastructure_(Medians)_*.json"],
+      "title": "project_na",
+      "fields": { "asset_type": "Type", "status_gro": "Status", "nyc_waters": "Waterbody", "outfall": "Outfall" },
+      "style": { "color": "#5f8f2e", "fill": 0.5, "weight": 1 },
+      "minZoom": 13,
+      "on": false
+    },
+    {
+      "id": "gi_regulated",
+      "group": "Green infrastructure",
+      "name": "Regulated projects",
+      "files": ["NYC_Green_Infrastructure_*/DEP_Green_Infrastructure_(Regulated_Projects)_*.json"],
+      "title": "project_na",
+      "fields": { "asset_type": "Type", "status_gro": "Status", "nyc_waters": "Waterbody", "outfall": "Outfall" },
+      "style": { "color": "#0f5c45", "fill": 0.45, "weight": 1 },
+      "minZoom": 13,
+      "on": false
+    }
+  ]
+}

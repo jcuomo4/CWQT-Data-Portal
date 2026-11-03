@@ -135,13 +135,13 @@ COLOR_GOOD = "#0ca30c"
 COLOR_ADVISORY = "#fab219"
 COLOR_POOR = "#d03b3b"
 COLOR_NODATA = "#c3c2b7"
-SERIES = "#2a78d6"          # blue  - main series
-SERIES_2 = "#eb6834"        # orange - second series (wet weather)
-INK = "#0b0b0b"
-INK_2 = "#52514e"
-MUTED = "#898781"
-GRID = "#e1e0d9"
-SURFACE = "#fcfcfb"
+SERIES = "#0d4ab2"          # SWIM blue - main series
+SERIES_2 = "#eb6834"        # orange    - second series (wet weather)
+INK = "#092e6e"             # SWIM navy - titles and text
+INK_2 = "#4f5d78"
+MUTED = "#8a93a6"
+GRID = "#e4e7ee"
+SURFACE = "#ffffff"
 
 CATEGORY_LABELS = {
     "good": f"Good: geomean ≤ {GOOD_MAX}",
@@ -355,7 +355,7 @@ def load_samples(xlsx: Path, sites: pd.DataFrame, qa: list[QAIssue],
     out = out.dropna(subset=["date", "mpn"]).sort_values(["site_id", "date"]).reset_index(drop=True)
 
     # Other QA observations
-    wd = out.date.dt.dayofweek
+    wd = out.date.dt.day_of_week
     nthu = int((wd != 3).sum())
     if nthu:
         qa.append(QAIssue("Rainfall",
@@ -486,10 +486,24 @@ MPN_FLOOR, MPN_CEIL = 7, 40000  # y-limits for MPN axes (log scale)
 MPN_TICKS = [10, 100, 1000, 10000]
 
 
+FONT_DIR = Path(__file__).resolve().parent / "templates" / "assets" / "fonts"
+CHART_FOOTER = "SWIM Coalition · Community Water Quality Testing"   # left side of each chart's footer
+_footer_note = ""   # set in main(): "Data through …"
+
+
 def _style():
+    """SWIM chart style: Poppins (from templates/assets/fonts), SWIM navy text."""
+    import logging
+    from matplotlib import font_manager
+    logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)   # quiet font-fallback notes
+    families = []
+    for f in sorted(FONT_DIR.glob("*.ttf")) if FONT_DIR.is_dir() else []:
+        font_manager.fontManager.addfont(str(f))
+    if any(f.name == "Poppins" for f in font_manager.fontManager.ttflist):
+        families.append("Poppins")
     plt.rcParams.update({
-        "font.family": "sans-serif",
-        "font.sans-serif": ["Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans"],
+        # Characters Poppins lacks (e.g. ≥) fall back to DejaVu Sans automatically
+        "font.family": families + ["DejaVu Sans"],
         "font.size": 9.5,
         "text.color": INK,
         "axes.labelcolor": INK_2,
@@ -501,12 +515,49 @@ def _style():
         "axes.spines.top": False, "axes.spines.right": False,
         "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.7, "grid.linestyle": "-",
         "axes.axisbelow": True,
-        "axes.titlesize": 12.5, "axes.titleweight": "bold", "axes.titlelocation": "left",
+        "axes.titlesize": 12.5, "axes.titleweight": "semibold", "axes.titlelocation": "left",
+        "axes.titlecolor": INK,
         "axes.titlepad": 10,
         "legend.frameon": False, "legend.fontsize": 9,
         "savefig.dpi": 160, "savefig.bbox": "tight", "savefig.pad_inches": 0.25,
         "pdf.fonttype": 42,
     })
+
+
+_LOGO_IMG = None
+
+
+def _chart_logo():
+    """The SWIM logo (templates/assets/swim-logo.png), trimmed of empty margins."""
+    global _LOGO_IMG
+    if _LOGO_IMG is None:
+        path = TEMPLATE_DIR / "assets" / "swim-logo.png"
+        _LOGO_IMG = False
+        if path.exists():
+            from PIL import Image
+            im = Image.open(path).convert("RGBA")
+            im = im.crop(im.getbbox())
+            im.thumbnail((900, 150))
+            _LOGO_IMG = np.asarray(im)
+    return _LOGO_IMG
+
+
+def _brand_footer(fig, logo_height_in=0.36):
+    """Add a footer strip below everything on the figure: source text on the left and
+    the SWIM logo on the right. Placed below the chart, so it never covers data."""
+    renderer = fig.canvas.get_renderer()
+    bb = fig.get_tightbbox(renderer)          # in inches
+    fw, fh = fig.get_size_inches()
+    top = bb.y0 - 0.08                         # just under the lowest element
+    note = f"{CHART_FOOTER}  ·  {_footer_note}" if _footer_note else CHART_FOOTER
+    fig.text(bb.x0 / fw, (top - logo_height_in / 2) / fh, note, ha="left", va="center",
+             fontsize=8, color=INK_2)
+    img = _chart_logo()
+    if img is not False:
+        w_in = logo_height_in * img.shape[1] / img.shape[0]
+        ax = fig.add_axes([(bb.x1 - w_in) / fw, (top - logo_height_in) / fh, w_in / fw, logo_height_in / fh])
+        ax.imshow(img, interpolation="lanczos")
+        ax.set_axis_off()
 
 
 def _fmt_int(v, _pos=None):
@@ -635,6 +686,7 @@ def chart_program_trend(season, site_year, out: Path, tables: Path):
     a2.set_xticklabels([f"{y}\n{int(agg.loc[y, 'n_sites'])}" for y in x], fontsize=8.5)
     a2.set_xlabel("Season  (number underneath = sites with a seasonal geomean)", fontsize=8.5)
     a2.grid(axis="x", visible=False)
+    _brand_footer(fig)
     fig.savefig(out)
     plt.close(fig)
 
@@ -713,6 +765,7 @@ def chart_site_heatmap(site_year, sites, out: Path, tables: Path):
                 "regular-season samples only.", xy=(0, 1), xycoords="axes fraction",
                 xytext=(0, 44), textcoords="offset points", fontsize=9, color=INK_2)
     ax.set_title("Seasonal geometric mean at every site", pad=62)
+    _brand_footer(fig)
     fig.savefig(out)
     plt.close(fig)
 
@@ -768,6 +821,7 @@ def chart_rainfall(season, out: Path, tables: Path):
     a2.set_title(f"Share of samples over {SINGLE_SAMPLE_LIMIT} MPN", pad=28)
     _subtitle(a2, f"All sites, {int(s.year.min())}–{int(s.year.max())} seasons with rainfall data "
                   f"({len(s):,} samples)")
+    _brand_footer(fig)
     fig.savefig(out)
     plt.close(fig)
 
@@ -817,6 +871,7 @@ def chart_waterbodies(season, out: Path, tables: Path):
                 f"(≥{MIN_SAMPLES_FOR_GEOMEAN} samples). Cleanest at top; waterbodies with "
                 f"<10 samples left out.", xy=(0, 1), xycoords="axes fraction", xytext=(0, 24),
                 textcoords="offset points", fontsize=8.8, color=INK_2)
+    _brand_footer(fig)
     fig.savefig(out)
     plt.close(fig)
 
@@ -851,6 +906,7 @@ def chart_latest_window(win, sites, out: Path):
                 f"{MIN_SAMPLES_FOR_GEOMEAN} samples in the window.", xy=(0, 1),
                 xycoords="axes fraction", xytext=(0, 24), textcoords="offset points",
                 fontsize=8.8, color=INK_2)
+    _brand_footer(fig)
     fig.savefig(out)
     plt.close(fig)
 
@@ -914,12 +970,13 @@ def site_timeseries_pdf(samples, sites, out: Path, png_dir: Path | None = None) 
             ax.grid(axis="x", visible=False)
             ax.set_xlabel("Season  (number underneath = that season's geometric mean)", fontsize=8.5)
             ax.set_ylabel("Enterococcus, MPN / 100 ml (log)")
-            ax.set_title(srow.site, pad=28)
+            heading, place = popup_heading(srow.site, srow.waterbody, srow.borough, srow.neighborhood)
+            ax.set_title(heading, pad=28)
             st = summarize(g)
             cls = f" · DEC class {srow.dec_class}" if srow.dec_class else ""
             off = len(allg) - len(g)
             off_txt = f" · {off} off-season sample{'s' if off != 1 else ''} not shown" if off else ""
-            _subtitle(ax, f"{srow.waterbody} · {srow.borough}{cls} · {st.n:,} samples · overall "
+            _subtitle(ax, f"{place} · Site ID {srow.site_id}{cls} · {st.n:,} samples · overall "
                           f"geomean {st.geomean:,.0f} · {st.pct_over_limit:.0f}% over "
                           f"{SINGLE_SAMPLE_LIMIT}{off_txt}")
             handles, labels_ = ax.get_legend_handles_labels()
@@ -927,6 +984,7 @@ def site_timeseries_pdf(samples, sites, out: Path, png_dir: Path | None = None) 
             labels_.append("Season geometric mean")
             ax.legend(handles, labels_, loc="upper left", bbox_to_anchor=(0, -0.2), ncols=4,
                       fontsize=8)
+            _brand_footer(fig, logo_height_in=0.32)
             pdf.savefig(fig)
             rel = site_pdf_name(srow.site_id)
             fig.savefig(out.parent / rel)
@@ -975,15 +1033,238 @@ def _warn_unfilled(text: str, name: str):
 
 
 def copy_web_assets(out: Path) -> str:
-    """Copy cwqt.css (and templates/assets/, if any) next to the pages. Returns the logo URL."""
+    """Copy cwqt.css and templates/assets/ next to the pages, make the favicons,
+    and return the logo address to use in the banner."""
     import shutil
+    from PIL import Image
     shutil.copyfile(TEMPLATE_DIR / "cwqt.css", out / "cwqt.css")
     assets = TEMPLATE_DIR / "assets"
-    if assets.is_dir():
-        shutil.copytree(assets, out / "assets", dirs_exist_ok=True)
-        if (assets / "swim-logo.png").exists():
-            return "assets/swim-logo.png"
-    return LOGO_URL
+    if not assets.is_dir():
+        return LOGO_URL
+    shutil.copytree(assets, out / "assets", dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("fonts", ".DS_Store"))
+    make_favicons(assets / "swim-emblem.png", out)
+    logo = assets / "swim-logo.png"
+    if not logo.exists():
+        return LOGO_URL
+    # Trim the logo's empty transparent margins so it shows at full size in the banner
+    im = Image.open(logo).convert("RGBA")
+    box = im.getbbox()
+    if box:
+        im = im.crop(box)
+        im.thumbnail((1200, 240))
+        im.save(out / "assets" / "swim-logo.png", optimize=True)
+    return "assets/swim-logo.png"
+
+
+def make_favicons(emblem: Path, out: Path):
+    """Browser-tab icons from any square-ish PNG (here the SWIM swimmer emblem):
+    favicon.ico (16/32/48 px, for older browsers), favicon-32.png (modern browsers) and
+    apple-touch-icon.png (180 px, phone home screens; white background as iOS requires)."""
+    if not emblem.exists():
+        return
+    from PIL import Image
+    im = Image.open(emblem).convert("RGBA")
+    im = im.crop(im.getbbox() or (0, 0, *im.size))
+    side = int(max(im.size) * 1.04)                      # square, small margin
+    sq = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    sq.paste(im, ((side - im.width) // 2, (side - im.height) // 2), im)
+    sq.resize((32, 32), Image.LANCZOS).save(out / "favicon-32.png", optimize=True)
+    sq.save(out / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    touch = Image.new("RGBA", (side, side), (255, 255, 255, 255))
+    pad = int(side * 0.12)
+    touch.paste(sq.resize((side - 2 * pad, side - 2 * pad), Image.LANCZOS), (pad, pad),
+                sq.resize((side - 2 * pad, side - 2 * pad), Image.LANCZOS))
+    touch.convert("RGB").resize((180, 180), Image.LANCZOS).save(out / "apple-touch-icon.png", optimize=True)
+
+
+# ---- Popup headings ---------------------------------------------------------
+
+WATER_WORDS = re.compile(r"\b(River|Bay|Harbor|Creek|Kill|Channel|Canal|Lake|Basin|Inlet|Sound|"
+                         r"Cove|Lagoon|Pond|Narrows|Estuary)$", re.I)
+
+
+def popup_heading(site: str, waterbody: str, borough: str, town: str) -> tuple[str, str]:
+    """('Rutgers Boathouse, Raritan River', 'New Brunswick · New Jersey') from the sheet's
+    'Raritan River, Rutgers Boathouse, New Brunswick NJ'. Rules:
+      * the location comes first, then the water name. The water name is the one the site
+        name starts with (usually the Waterbody column, e.g. 'Raritan River', but sometimes a
+        different one, e.g. 'Hudson River, Dyckman Marina' -> 'Dyckman Marina, Hudson River');
+      * for New Jersey sites, a trailing ', <town> NJ' is dropped (the town is on line 2);
+      * a name that is just the waterbody, or already contains it, stays as is; any other
+        name gets the waterbody added at the end.
+    Line 2 is '<town> · New Jersey' for NJ sites and '<borough> · New York' otherwise."""
+    name = str(site).strip()
+    wb = str(waterbody).strip()
+    town = "" if pd.isna(town) else str(town).strip()
+    borough = "" if pd.isna(borough) else str(borough).strip()
+    nj = borough.lower() == "new jersey"
+    cap = lambda t: t[:1].upper() + t[1:]
+    nj_tail = re.compile(r",?\s*NJ\.?$", re.I)
+
+    def place():
+        return (f"{town} · New Jersey" if town else "New Jersey") if nj else \
+               (f"{borough} · New York" if borough else "New York")
+
+    first, _, after = name.partition(",")
+    after = after.strip()
+    if not wb or wb == "Unknown" or name.lower() == wb.lower():
+        return name, place()
+    if first.strip().lower() == wb.lower() or (after and WATER_WORDS.search(first.strip())):
+        water, rest = first.strip(), after
+    elif wb.lower() in name.lower():
+        return cap(name), place()
+    else:
+        return f"{cap(name)}, {wb}", place()
+    if nj:
+        if not town:   # no town on the Information tab: take it from 'Hackensack, NJ'
+            m = re.match(r"^(?:.*,\s*)?([^,\s][^,]*?),?\s*NJ\.?$", rest, re.I)
+            if m:
+                town = m.group(1).strip()
+        trimmed = rest
+        if town:
+            trimmed = re.sub(r",?\s*" + re.escape(town) + r",?\s*NJ\.?$", "", trimmed, flags=re.I)
+        trimmed = nj_tail.sub("", trimmed).strip(" ,")
+        rest = trimmed or nj_tail.sub("", rest).strip(" ,") or rest
+    return f"{cap(rest)}, {water}", place()
+
+
+# ---- Extra map layers from data/ ------------------------------------------------
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
+
+
+def _simplify(points, tol):
+    """Douglas-Peucker line simplification (tol in degrees; 1e-5 is about 1 m)."""
+    pts = np.asarray(points, dtype=float)
+    if len(pts) < 5:
+        return pts
+    keep = np.zeros(len(pts), bool)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(pts) - 1)]
+    while stack:
+        a, b = stack.pop()
+        if b <= a + 1:
+            continue
+        seg = pts[b] - pts[a]
+        rel = pts[a + 1:b] - pts[a]
+        norm = np.hypot(*seg)
+        d = np.abs(seg[0] * rel[:, 1] - seg[1] * rel[:, 0]) / norm if norm else np.hypot(rel[:, 0], rel[:, 1])
+        i = int(np.argmax(d))
+        if d[i] > tol:
+            keep[a + 1 + i] = True
+            stack += [(a, a + 1 + i), (a + 1 + i, b)]
+    out = pts[keep]
+    return out if len(out) >= 4 else pts
+
+
+def _slim_geometry(g, tol=1e-5, nd=5):
+    t, c = g["type"], g["coordinates"]
+    rnd = lambda arr: [[round(float(x), nd), round(float(y), nd)] for x, y in arr]
+    if t == "Point":
+        return {"type": t, "coordinates": [round(float(c[0]), nd), round(float(c[1]), nd)]}
+    if t == "Polygon":
+        return {"type": t, "coordinates": [rnd(_simplify(r, tol)) for r in c]}
+    if t == "MultiPolygon":
+        return {"type": t, "coordinates": [[rnd(_simplify(r, tol)) for r in poly] for poly in c]}
+    if t == "LineString":
+        return {"type": t, "coordinates": rnd(_simplify(c, tol))}
+    if t == "MultiLineString":
+        return {"type": t, "coordinates": [rnd(_simplify(l, tol)) for l in c]}
+    return g
+
+
+def _clean_value(v):
+    if v is None:
+        return None
+    if isinstance(v, float):
+        return int(v) if v.is_integer() else round(v, 2)
+    v = str(v).strip()
+    if v in ("", "None", "N/A", "nan", "NaN", "null"):
+        return None
+    if re.fullmatch(r"-?\d+\.0", v):          # '190845.0' -> '190845'
+        v = v[:-2]
+    return v
+
+
+def build_data_layers(out: Path) -> list[dict]:
+    """Turn the files listed in data/layers.json into small GeoJSON files in out/layers/
+    (only the fields the popups use, coordinates rounded to ~1 m, outlines simplified).
+    Returns what the map needs to know about each layer."""
+    cfg_path = DATA_DIR / "layers.json"
+    if not cfg_path.exists():
+        return []
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    layer_dir = out / "layers"
+    layer_dir.mkdir(parents=True, exist_ok=True)
+    metas = []
+    for L in cfg.get("layers", []):
+        files = []
+        for pattern in L["files"]:
+            matches = sorted(DATA_DIR.glob(pattern))
+            if matches:
+                files.append(matches[-1])          # newest dated download wins
+        if not files:
+            print(f"  note: no file in data/ matches layer '{L['name']}' ({', '.join(L['files'])}); skipped")
+            continue
+        cats = L.get("categories")
+        values = L.get("values", {})
+        keep = [k for k in [L.get("title")] + list(L.get("fields", {})) if k]
+        if cats and cats["field"] not in keep:
+            keep.append(cats["field"])
+        # Compact format: every distinct value is stored once in "s" and features refer to it
+        # by number; points are just [lon, lat]. (The map turns this back into GeoJSON.)
+        strings, index = [], {}
+
+        def sid(v):
+            v = f"{v:,}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
+            if v not in index:
+                index[v] = len(strings)
+                strings.append(v)
+            return index[v]
+
+        rows, kinds = [], set()
+        for f in files:
+            for feat in json.loads(f.read_text(encoding="utf-8")).get("features", []):
+                g = feat.get("geometry")
+                if not g or not g.get("coordinates"):
+                    continue
+                raw = feat.get("properties") or {}
+                vals = []
+                for k in keep:
+                    v = _clean_value(raw.get(k))
+                    vals.append(-1 if v is None else sid(values.get(k, {}).get(str(v), v)))
+                kinds.add("point" if g["type"] == "Point" else "shape")
+                gs = _slim_geometry(g)
+                row = [gs["coordinates"] if g["type"] == "Point" else gs, vals]
+                if cats:
+                    rv = str(_clean_value(raw.get(cats["field"])))
+                    row.append(next((i for i, c in enumerate(cats["classes"]) if rv in c["values"]),
+                                    len(cats["classes"])))
+                rows.append(row)
+        points = kinds == {"point"}
+        if not points:   # mixed layer: store every geometry in full
+            rows = [[{"type": "Point", "coordinates": r[0]} if isinstance(r[0], list) else r[0], *r[1:]]
+                    for r in rows]
+        path = layer_dir / f"{L['id']}.json"
+        path.write_text(json.dumps({"k": keep, "s": strings, "p": points, "f": rows},
+                                   separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+        feats = rows
+        metas.append({
+            "id": L["id"], "group": L.get("group", "Other layers"), "name": L["name"],
+            "url": f"layers/{L['id']}.json", "title": L.get("title"),
+            "titlePrefix": L.get("titlePrefix", ""),
+            "fields": [[k, lab] for k, lab in L.get("fields", {}).items()],
+            "style": L.get("style", {}), "minZoom": L.get("minZoom", 0), "on": bool(L.get("on")),
+            "kind": "point" if points else "shape",
+            "categories": ({"label": cats.get("label", ""),
+                            "classes": [{"label": c["label"], "color": c["color"]} for c in cats["classes"]]
+                                       + [cats.get("other", {"label": "Other", "color": "#8a8f99"})]}
+                           if cats else None),
+        })
+        print(f"  layer '{L['name']}': {len(feats):,} features from {', '.join(x.name for x in files)} "
+              f"-> {path.stat().st_size / 1e6:.1f} MB")
+    return metas
 
 
 def _num(v, nd=1):
@@ -1013,7 +1294,8 @@ def _stat_rows(stats: pd.DataFrame, site_ids: set) -> list:
     return rows
 
 
-def build_map(season, sites, site_all, site_year, win, pdfs: dict, logo: str, out: Path):
+def build_map(season, sites, site_all, site_year, win, pdfs: dict, logo: str, out: Path,
+              extra_layers: list | None = None):
     """Write the map page (index.html) from templates/map.html."""
     have = sites[sites.site_id.isin(season.site_id)].dropna(subset=["lat", "lon"])
     ids = set(have.site_id)
@@ -1036,10 +1318,11 @@ def build_map(season, sites, site_all, site_year, win, pdfs: dict, logo: str, ou
                        "rows": _stat_rows(site_year[site_year.year == y], ids)})
 
     data = {
-        # site_id -> [name, waterbody, borough, DEC class, lat, lon]
-        "sites": {int(r.site_id): [r.site, r.waterbody, str(r.borough) if pd.notna(r.borough) else "",
+        # site_id -> [popup title, place line, DEC class, lat, lon]
+        "sites": {int(r.site_id): [*popup_heading(r.site, r.waterbody, r.borough, r.neighborhood),
                                    r.dec_class, round(float(r.lat), 5), round(float(r.lon), 5)]
                   for r in have.itertuples()},
+        "extraLayers": extra_layers or [],
         # site_id -> [[season, geomean], ...] for the popup trend chart
         "trend": {int(sid): [[int(y), _num(gm)] for y, gm in zip(g.year, g.geomean) if np.isfinite(gm)]
                   for sid, g in site_year.sort_values("year").groupby("site_id")},
@@ -1108,12 +1391,6 @@ def build_charts_page(season, sites, win, pdfs: dict, logo: str, out: Path):
 
 def download_sheet(sheet_id: str, dest: Path) -> Path:
     """Download the Google Sheet as .xlsx (formulas' last calculated values included).
-
-    Two ways to give access:
-      * Share the sheet as "Anyone with the link can view" -> no credentials needed.
-      * Keep it private and share it with a Google service account; put that
-        account's JSON key in the GOOGLE_SERVICE_ACCOUNT_JSON environment variable
-        (needs `pip install google-auth requests`).
     """
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
     headers = {"User-Agent": "cwqt-visualize"}
@@ -1197,6 +1474,8 @@ def main(argv=None):
     for c in checks:
         print("  " + c)
 
+    global _footer_note
+    _footer_note = f"Data through {samples.date.max():%b %-d, %Y}"
     season = samples[samples.in_season]          # regular-season samples only
     print(f"  {len(season):,} regular-season samples ({SEASON_START[0]}/{SEASON_START[1]}–"
           f"{SEASON_END[0]}/{SEASON_END[1]}) used for seasonal statistics")
@@ -1230,7 +1509,8 @@ def main(argv=None):
 
     if not args.no_map:
         logo = copy_web_assets(out)
-        build_map(season, sites, site_all, site_year, win, pdfs, logo, out / "index.html")
+        extra = build_data_layers(out)
+        build_map(season, sites, site_all, site_year, win, pdfs, logo, out / "index.html", extra)
         print(f"  wrote {out / 'index.html'} (map, {(out / 'index.html').stat().st_size / 1e3:,.0f} KB)")
         build_charts_page(season, sites, win, pdfs, logo, out / "charts.html")
         print(f"  wrote {out / 'charts.html'}")

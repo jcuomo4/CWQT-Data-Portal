@@ -10,6 +10,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Charts &amp; Graphics · Community Water Quality Testing Data Portal</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="cwqt.css">
 <style>
   .content { max-width: 1040px; margin: 0 auto; padding: 24px 20px 48px; }
@@ -48,8 +51,10 @@
 
 <header class="banner">
   <div class="brand">
-    <img class="logo" src="{{LOGO_URL}}" alt="SWIM Coalition"
-         onerror="this.outerHTML='<span class=&quot;logo-text&quot;>SWIM Coalition</span>'">
+    <a href="https://www.swimmablenyc.org/">
+        <img class="logo" src="{{LOGO_URL}}" alt="SWIM Coalition"
+             onerror="this.outerHTML='<span class=&quot;logo-text&quot;>SWIM Coalition</span>'">
+    </a>
     <h1>Community Water Quality Testing Data Portal</h1>
   </div>
   <nav class="actions">
@@ -69,10 +74,16 @@
       <li><b>{{N_SAMPLES}}</b><span>regular-season samples</span></li>
       <li><b>{{SEASON_RANGE}}</b><span>seasons</span></li>
     </ul>
-    <p class="muted">Enterococcus results from SWIM's volunteer Community Water Quality Testing program. Values
-      are MPN per 100 ml. Water quality is judged on the NYC DOH primary-contact scale: a geometric mean of
+    <p class="muted">This portal displays data from the Community Water Quality Testing (CWQT) program, 
+      a community science initiative facilitated by the SWIM Coalition. Values represent the Most Probable 
+      Number (MPN) of enterococcus colonies per 100 ml. Enterococcus is a fecal indicator bacteria, and its
+      presence in water is correlated to <a href="https://www.nyc.gov/site/dep/water/combined-sewer-overflows.page" target="_blank" rel="noopener noreferrer">combined sewer overflows</a>.
+      Water quality is judged based on NYC Department of Health and Mental Hygiene (DOH) standards for swimming, 
+      which allows us to imagine a future where all of NYC’s coastline is used and accessed like a public beach. 
+      Based on these standards, a geometric mean of
       {{GOOD_MAX}} or less is <b>good</b>, {{GOOD_MAX}}–{{ADVISORY_MAX}} is <b>advisory</b>, and above
-      {{ADVISORY_MAX}} is <b>poor</b>. Click any chart to open it full size.</p>
+      {{ADVISORY_MAX}} is <b>poor</b>.</p>
+    <p class="muted">Click any chart below to open it full size.</p>
     <ol class="toc">
       <li><a href="#trend">Water quality over time, all sites</a></li>
       <li><a href="#heatmap">Every site, every season</a></li>
@@ -114,15 +125,14 @@
     <h3>4. Recent water quality by waterbody ({{RECENT_RANGE}})</h3>
     <p>Each row is a waterbody, ordered from cleanest to most contaminated over the last
       {{RECENT_SEASONS}} seasons. The large dot is the geometric mean of all samples in that waterbody,
-      and small dots are its individual sites.</p>
+      and small dots are its individual sites. The right-hand side shows the number of sites and samples from each waterbody.</p>
     <figure><a href="4_waterbody_comparison.png" target="_blank" rel="noopener"><img src="4_waterbody_comparison.png" loading="lazy" alt="Dot chart of geometric mean by waterbody"></a></figure>
   </section>
 
   <section class="card" id="latest">
     <h3>5. The latest 30 days ({{WINDOW}})</h3>
     <p>Each site's geometric mean over the most recent 30 days of sampling, ranked from cleanest to most
-      contaminated. This is the same calculation as the 30-day geometric mean tabs in the CWQT master
-      sheet. Hollow dots mark sites with fewer than {{MIN_N}} samples in the window.</p>
+      contaminated. Hollow dots mark sites with fewer than {{MIN_N}} samples in the window.</p>
     <figure class="tall"><a href="5_latest_30_day_status.png" target="_blank" rel="noopener"><img src="5_latest_30_day_status.png" loading="lazy" alt="Ranked dot chart of 30-day geometric mean by site"></a></figure>
   </section>
 
@@ -135,7 +145,9 @@
   </section>
 
   <p class="footer">Updated automatically every morning from the CWQT master data sheet · {{DATA_THROUGH}} ·
-    Built {{BUILT}}.</p>
+    Updated {{BUILT}}.</p>
+  <p class="footer">Feedback is welcome! Please contact us with any questions or suggestions at 
+    <a href="mailto:contact@swimmablenyc.org?subject=CWQT%20Data%20Portal">contact@swimmablenyc.org</a>.</p>
 </main>
 </body>
 </html>

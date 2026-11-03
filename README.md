@@ -3,16 +3,9 @@
 The **Community Water Quality Testing Data Portal**: an interactive map and charts of Enterococcus
 results from the CWQT program, based on the CWQT master Google Sheet.
 
-**Data Portal:** <https://jcuomo4.github.io/CWQT-Data-Portal/>
+**Data Portal:** <https://SWIMCoalition.github.io/CWQT-Data-Portal/>
 
-**CWQT Master Google Sheet:** <https://docs.google.com/spreadsheets/d/1813b2nagaxZ80xRfyMZNNKySZOitro5Nt7W4E9WNQDA/edit?pli=1&gid=1924583806#gid=1924583806>
-
-```
-CWQT master Google Sheet
-        │  downloaded daily at 7:17 am ET (GitHub Actions)
-        ▼
-cwqt_visualize.py + templates/  ──►  map, charts page, PDFs  ──►  GitHub Pages
-```
+**More about CWQT:** <https://www.swimmablenyc.org/cwqt>
 
 Results entered in the master sheet automatically appear on the map the next morning.
 
@@ -24,39 +17,17 @@ Results entered in the master sheet automatically appear on the map the next mor
 |---|---|
 | `cwqt_visualize.py` | Reads the workbook, calculates the statistics and writes every output. All thresholds and definitions are in its **CONFIGURATION** section near the top. |
 | `templates/` | The web pages' design: `map.html` (map page), `charts.html` (charts page), `cwqt.css` (shared colors, fonts, banner). Edit these to change how the portal looks; see [Changing the look](#changing-the-look-of-the-portal). |
+| `templates/assets/` | SWIM branding: `swim-logo.png` (banner and chart footers), `swim-emblem.png` (browser-tab icon) and `fonts/` (Poppins, used in the charts; free under the SIL Open Font License, see `OFL-LICENSE.txt`). |
+| `data/` | Extra map layers (outfalls, drainage areas, green infrastructure) and `layers.json`, which says how each one is shown. See [Map layers](#map-layers). |
 | `requirements.txt` | Python packages the script needs. |
 | `.github/workflows/update-map.yml` | The daily job: download the sheet → run the script → publish the site. |
 | `status.json` | Written by the daily job: latest sample date, sample count and site count. A new commit means new data arrived. |
 | `.gitignore` | Keeps the workbook and generated files out of the repository. |
 
-## What the script produces
-
-| Output | Shows | Published on the site? |
-|---|---|---|
-| `index.html` | The map page. It has a SWIM banner with a **Charts & Graphics** button and a **Layers** menu: CWQT results by season, "Latest 30 days", "All seasons" and earlier seasons, plus basemap choices and a streams overlay. Clicking a site shows its stats, a mini trend chart and a link to its full time series. (`cwqt_map.html` is a copy, so the old address still works.) | Yes |
-| `charts.html` | Charts & Graphics page: "Data through" date and summary numbers, each chart with a short description, and a list of every site's time-series PDF | Yes |
-| `cwqt.css` | Shared styles for both pages (copied from `templates/`) | Yes |
-| `1_program_trend.png` | Typical site geomean by season (all sites, and long-running sites only) and % of samples over 104, wet vs dry weather | Yes |
-| `2_site_by_season_heatmap.png` | Every site × every season, colored good / advisory / poor | Yes |
-| `3_rainfall_effect.png` | Bacteria levels by rainfall in the ~72 hours before sampling | Yes |
-| `4_waterbody_comparison.png` | Geomean by waterbody over the last 5 seasons, with one dot per site | Yes |
-| `5_latest_30_day_status.png` | 30-day geomean for each site (same calculation as the sheet's GeoMean tabs) | Yes |
-| `site_timeseries.pdf` | One page per site: every regular-season sample, by season | Yes |
-| `sites/site-NNN.pdf` | The same page for each site on its own (NNN = Site ID), linked from the map popups and the charts page | Yes |
-| `tables/*.csv` | The numbers behind every chart | No |
-| `data_quality_report.txt` | Problems found in the sheet (bad coordinates, duplicate rows, names out of sync, lab QC notes…) | No |
-| `status.json` | Latest sample date and counts | Committed to the repository |
-
-Published files are reachable by name, e.g. `…/CWQT-Data-Portal/1_program_trend.png`. What gets
-published is set in the "Choose what gets published" step of the workflow.
-
----
-
 ## How the numbers are calculated
 
-The script follows the sheet's FAQ and its GeoMean tabs. Each run, it recalculates the
-**30 Day GeoMean Primary Contact** tab and prints whether every site matches (it should report
-79/79 or similar).
+Each run, the script recalculates the **30 Day GeoMean Primary Contact** tab and prints whether 
+every site matches.
 
 - **Censored results:** `<10` counts as 10, `>24196` as 24196 and `>6000` as 6000.
 - **Geometric mean** = exp(mean(ln(MPN))).
@@ -75,7 +46,7 @@ The script follows the sheet's FAQ and its GeoMean tabs. Each run, it recalculat
 - **Wet weather** = at least 0.25" of rain at Central Park on the sampling day plus the 2 days
   before. Precipitation text is cleaned up first: "Trace" counts as 0, and "0.45 (3.2 snow)" counts
   as 0.45.
-- **Lab/field splits** recorded in Notes are ignored by default, so the numbers match the GeoMean
+- **Lab/field splits** recorded in Notes are ignored as of now, so the numbers match the GeoMean
   tabs. Run with `--average-splits` to average them as the FAQ describes.
 
 To change any of these, edit the CONFIGURATION section of `cwqt_visualize.py`
@@ -146,32 +117,62 @@ The design lives in `templates/` and is separate from the calculations. Edit tho
 |---|---|
 | Colors, fonts, button style, banner height | the **SWIM BRAND** block at the top of `templates/cwqt.css` |
 | Banner title, button labels, popup wording, legend text | `templates/map.html` |
+| How popup titles are written ("Rutgers Boathouse, Raritan River" / "New Brunswick · New Jersey") | `popup_heading` in `cwqt_visualize.py`. The titles come from the Site name, Waterbody, Borough/State and Neighborhood/Town columns on the Information tab. |
 | Chart descriptions and page text on the charts page | `templates/charts.html` |
-| The logo | It's loaded from SWIM's Wix site (`LOGO_URL` in `cwqt_visualize.py`). To host it here instead, save it as `templates/assets/swim-logo.png`. |
+| The logo | Replace `templates/assets/swim-logo.png`. The script trims empty transparent margins automatically, so any version of the logo works. It's used in the banner and in every chart's footer. |
+| The browser-tab icon (favicon) | Replace `templates/assets/swim-emblem.png`, ideally a square PNG with a transparent background, 512 px or larger. The script makes all the sizes browsers need (`favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`), so there's nothing to convert. |
+| Chart fonts and colors | `templates/assets/fonts/` (Poppins), plus `INK`, `SERIES`, etc. in the CONFIGURATION section of `cwqt_visualize.py`. The footer text on each chart is `CHART_FOOTER`. |
 | Basemap choices or the streams overlay | the `BASEMAPS` and `WATERWAYS` lists near the top of the script in `templates/map.html`. `WATERWAYS.minZoom` sets how far in you must zoom before streams appear. |
 | Thresholds, categories, season dates | the CONFIGURATION section of `cwqt_visualize.py` (used by the charts *and* the map) |
 
 Words in double curly braces in the templates (e.g. `{{DATA}}`, `{{N_SITES}}`) are filled in by the
 script. Keep them where you want those values to appear.
 
-**Adding map layers later** (e.g. CSO outfalls, green infrastructure): put the data file (GeoJSON) in
-`templates/assets/`, then add an entry to the `EXTRA_LAYERS` list in `templates/map.html`. There's a
-commented example there. Each entry appears as its own group with a checkbox in the Layers menu.
-
-Shapefiles and KML files need converting to GeoJSON first. Do it once per dataset, e.g. at
-<https://mapshaper.org>: drop in the file (for a shapefile, all of its parts: `.shp`, `.shx`, `.dbf`
-and `.prj`), then Export → GeoJSON. While there:
-- Make sure it's in latitude/longitude. NYC data often comes in State Plane feet; in mapshaper, type
-  `-proj wgs84` in the console.
-- Simplify large drainage-area polygons (Simplify, ~10–20%) so the file stays small and fast.
-
-**Current design** (October 2026), matched to swimmablenyc.org:
+**Current design** (November 2026), matched to swimmablenyc.org:
 - Poppins font, SWIM navy `#092e6e` with square-cornered buttons, SWIM blue `#0d4ab2` links, cream
   `#f7f7f3` page background.
 - Light gray basemap with the USGS streams and rivers overlay on top, so narrow waterways like the
   Bronx River stand out. The overlay appears from the ~1-mile zoom level, because USGS labels every
   lake and reservoir at the citywide view. "Streets" and "Satellite" basemaps are also available.
 - On phones the legend starts collapsed, button labels shorten, and tap targets are larger.
+- Charts use Poppins and SWIM navy, with a footer showing the source, the "Data through" date and the
+  SWIM logo.
+
+---
+
+## Map layers
+
+Besides the CWQT sites, the map's Layers menu offers the datasets in `data/`:
+
+| Group | Layer | Shown from | Style |
+|---|---|---|---|
+| Sewers & stormwater | Outfalls | ~1-mile zoom (12) | colored by type: CSO, MS4, highway, direct drainage, other |
+| Sewers & stormwater | Combined sewer drainage areas | any zoom | violet outlines |
+| Green infrastructure | Green infrastructure sites | neighborhood zoom (14) | green dots |
+| Green infrastructure | Porous pavement | 14 | green shapes |
+| Green infrastructure | Medians, Regulated projects | 13 | green shapes |
+
+Each layer is off until someone checks it, and is only downloaded then. Clicking a feature shows its
+details. Point layers only draw what's on screen, so even the 16,000 green infrastructure sites stay
+fast.
+
+**How it works.** `data/layers.json` lists each layer: which file(s), which fields go in the popup,
+colors, and the zoom level it appears at. On each run the script reads those files and writes small
+web-ready copies to `layers/` on the site, keeping only the listed fields, rounding coordinates to
+about 1 m and simplifying outlines. The ~24 MB of raw downloads become about 1.8 MB.
+
+**Updating a dataset.** Replace the file in `data/` with the new download. File names in
+`layers.json` use `*` (e.g. `NYC_Citywide_Outfalls_*.json`), so a newly dated file is picked up
+automatically. If two files match, the newest name wins, so delete the old one.
+
+**Adding a dataset.** Put the file in `data/`, then copy an existing entry in `data/layers.json` and
+edit it. The notes at the top of that file explain each setting. Files must be GeoJSON in
+latitude/longitude, like NYC Open Data's GeoJSON exports. Shapefiles and KML files need converting
+first, e.g. at <https://mapshaper.org>: drop in the file (for a shapefile, all of its parts: `.shp`,
+`.shx`, `.dbf` and `.prj`), then Export → GeoJSON. While there:
+- Make sure it's in latitude/longitude. NYC data often comes in State Plane feet; in mapshaper, type
+  `-proj wgs84` in the console.
+- No need to simplify; the script does that.
 
 ---
 
@@ -199,34 +200,6 @@ Options:
 
 Outputs go to `cwqt_outputs/` (or the `--out` folder). Open `index.html` there in a browser to
 preview the portal before publishing.
-
----
-
-## Setup (for a new copy or after transferring the repository)
-
-1. **Public repository** with these files. Free GitHub Pages requires a public repository.
-2. **Sheet access.** Either:
-   - share the sheet as *Anyone with the link → Viewer*; or
-   - keep it private: create a Google Cloud service account, enable the Drive API, share the sheet
-     with the service account's email, and download its JSON key.
-3. **Secrets** (Settings → Secrets and variables → Actions):
-   - `CWQT_SHEET_ID`
-   - `GOOGLE_SERVICE_ACCOUNT_JSON` (private sheet only)
-4. **Pages:** Settings → Pages → Source: **GitHub Actions**.
-5. **First run:** Actions → *Update CWQT map* → **Run workflow**. The site address appears under
-   Settings → Pages.
-6. **Wix:** Add Elements → Embed Code → **Embed a site** → the Pages address.
-
-**Moving the repository to another account:** use Settings → General → Transfer ownership, or copy
-the files into a new repository there. Then:
-- re-add the secrets;
-- turn Pages back on;
-- **update the Wix embed and any shared links**, because the site address changes to
-  `https://<new-owner>.github.io/CWQT-Data-Portal/`;
-- add SWIM staff as collaborators so failure emails reach someone who can act on them.
-
-If you *copy* rather than transfer, disable the workflow in the old repository (Actions → *Update CWQT
-map* → ⋯ → Disable workflow). Otherwise both copies keep publishing every morning.
 
 ---
 
