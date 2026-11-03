@@ -48,6 +48,8 @@ jobs:
           cp build/index.html site/cwqt_map.html   # old address keeps working
           cp build/*.png build/site_timeseries.pdf site/
           cp -r build/sites site/
+          cp build/favicon.ico build/favicon-32.png build/apple-touch-icon.png site/ 2>/dev/null || true
+          if [ -d build/layers ]; then cp -r build/layers site/; fi
           if [ -d build/assets ]; then cp -r build/assets site/; fi
 
       - uses: actions/configure-pages@v6
